@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>外資投信買賣超轉換工具</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="workspace">
+        <div class="intro">
+          <p class="eyebrow">外資與投信</p>
+          <h1>外資投信買賣超轉換工具</h1>
+          <p>PDF 僅在此瀏覽器內處理，不會上傳或保存到伺服器。</p>
+        </div>
+
+        <form id="toolForm" class="tool">
+          <label class="file-box">
+            <span>外資 PDF</span>
+            <input id="foreignPdf" name="foreignPdf" type="file" accept="application/pdf,.pdf" required />
+          </label>
+          <label class="file-box">
+            <span>投信 PDF</span>
+            <input id="institutionPdf" name="institutionPdf" type="file" accept="application/pdf,.pdf" required />
+          </label>
+          <button id="convertButton" type="submit">產生 Excel</button>
+        </form>
+
+        <div id="status" class="status">等待上傳檔案。</div>
+      </section>
+
+      <section id="resultPanel" class="results" hidden>
+        <div>
+          <h2>轉換完成</h2>
+          <p id="resultSummary"></p>
+        </div>
+        <div id="downloadLinks" class="downloads"></div>
+      </section>
+
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
