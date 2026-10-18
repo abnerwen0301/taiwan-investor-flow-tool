@@ -11,6 +11,8 @@ const button = document.querySelector("#convertButton");
 const resultPanel = document.querySelector("#resultPanel");
 const resultSummary = document.querySelector("#resultSummary");
 const downloadLinks = document.querySelector("#downloadLinks");
+button.disabled = false;
+setStatus("等待上傳檔案。");
 
 function setStatus(message, isError = false) {
   statusBox.textContent = message;
@@ -24,7 +26,7 @@ function parseNumber(text) {
 
 function validInt(text, signed = true) {
   const sign = signed ? "-?" : "";
-  return new RegExp(`^${sign}(?:\\d{1,3}(?:,\\d{3})+|\\d+)$`).test(text);
+  return new RegExp(`^${sign}(?:0|[1-9]\\d{0,2}(?:,\\d{3})+|[1-9]\\d*)$`).test(text);
 }
 
 function validDecimal(text, signed = true) {
@@ -57,8 +59,9 @@ function parseAmountCloseChange(text) {
   return null;
 }
 
-function parseNetAmountCloseChange(text) {
+function parseNetAmountCloseChange(text, expectedNet) {
   for (const [netText, restAfterNet] of prefixes(text, validInt, true)) {
+    if (expectedNet !== undefined && Math.abs(parseNumber(netText) - expectedNet) > 1) continue;
     for (const [amountText, restAfterAmount] of prefixes(restAfterNet, validInt, true)) {
       for (const [closeText, restAfterClose] of prefixes(restAfterAmount, validDecimal, false)) {
         const change = decimalPrefixValue(restAfterClose, true);
@@ -91,13 +94,16 @@ function parseCompactNumbers(text) {
 }
 
 function parseSide(words) {
+  words = words.flatMap((word) => word.str.split(/\s+/).filter(Boolean).map((str) => ({ ...word, str })));
   if (words.length < 3 || !/^\d+$/.test(words[0].str)) return null;
   const rank = Number.parseInt(words[0].str, 10);
   if (words[1] && validInt(words[1].str, false)) {
     throw new Error(`第 ${rank} 名缺少股票名稱，請重新整理後再試一次；若仍失敗，代表此 PDF 版面需要新增解析規則。`);
   }
-  let numericStart = 1;
+  const nameEnd = words.findIndex((word, index) => index > 0 && word.str.includes(")"));
+  let numericStart = nameEnd > 0 ? nameEnd + 1 : 1;
   while (
+    nameEnd < 0 &&
     numericStart < words.length &&
     !(validInt(words[numericStart].str, false) && validInt(words[numericStart + 1]?.str || "", false))
   ) {
@@ -148,13 +154,13 @@ function parseSide(words) {
   }
 
   if (!numbers && rest.length >= 4 && validInt(rest[0], false) && validInt(rest[1], false)) {
-    const parsed = parseNetAmountCloseChange(rest[2]);
+    const parsed = parseNetAmountCloseChange(rest[2], parseNumber(rest[0]) - parseNumber(rest[1]));
     const change = decimalPrefixValue(rest[3], true);
     if (parsed && change !== null) numbers = [parseNumber(rest[0]), parseNumber(rest[1]), ...parsed, change];
   }
 
   if (!numbers && rest.length >= 3 && validInt(rest[0], false) && validInt(rest[1], false)) {
-    const parsed = parseNetAmountCloseChange(rest.slice(2).join(""));
+    const parsed = parseNetAmountCloseChange(rest.slice(2).join(""), parseNumber(rest[0]) - parseNumber(rest[1]));
     if (parsed) numbers = [parseNumber(rest[0]), parseNumber(rest[1]), ...parsed];
   }
 
@@ -192,13 +198,11 @@ async function extractPdfRows(file) {
   for (let pageNo = 1; pageNo <= pdf.numPages; pageNo += 1) {
     const page = await pdf.getPage(pageNo);
     const content = await page.getTextContent();
-    const words = content.items
-      .map((item) => ({
-        str: item.str.trim(),
-        x: item.transform[4],
-        y: item.transform[5]
-      }))
-      .filter((item) => item.str);
+    const words = content.items.flatMap((item) => [...item.str.matchAll(/\S+/g)].map((match) => ({
+      str: match[0],
+      x: item.transform[4] + item.width * match.index / item.str.length,
+      y: item.transform[5]
+    })));
 
     const lines = [];
     for (const word of [...words].sort((a, b) => b.y - a.y || a.x - b.x)) {
@@ -218,8 +222,9 @@ async function extractPdfRows(file) {
       if (lineText.includes("單位：千元")) context = lineText.replace(/\s+/g, " ").trim();
       if (!/^\d+$/.test(line[0]?.str || "")) continue;
 
-      let left = line.filter((word) => word.x < 400);
-      let right = line.filter((word) => word.x >= 400);
+      const rightRank = line.findIndex((word, index) => index > 0 && word.str === line[0].str && word.x > page.view[2] * 0.4);
+      let left = rightRank > 0 ? line.slice(0, rightRank) : line.filter((word) => word.x < 400);
+      let right = rightRank > 0 ? line.slice(rightRank) : line.filter((word) => word.x >= 400);
       if (left.length >= 7 && right.length && /^-?\d+\.\d{2}$/.test(right[0].str)) {
         left = [...left, right[0]];
         right = right.slice(1);

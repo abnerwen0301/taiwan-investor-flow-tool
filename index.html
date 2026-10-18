@@ -17,7 +17,7 @@
           <p>PDF 僅在此瀏覽器內處理，不會上傳或保存到伺服器。</p>
         </div>
 
-        <form id="toolForm" class="tool">
+        <form id="toolForm" class="tool" onsubmit="return false">
           <label class="file-box">
             <span>外資 PDF</span>
             <input id="foreignPdf" name="foreignPdf" type="file" accept="application/pdf,.pdf" required />
@@ -26,10 +26,10 @@
             <span>投信 PDF</span>
             <input id="institutionPdf" name="institutionPdf" type="file" accept="application/pdf,.pdf" required />
           </label>
-          <button id="convertButton" type="submit">產生 Excel</button>
+          <button id="convertButton" type="submit" disabled>產生 Excel</button>
         </form>
 
-        <div id="status" class="status">等待上傳檔案。</div>
+        <div id="status" class="status" role="status">正在載入轉換程式。</div>
       </section>
 
       <section id="resultPanel" class="results" hidden>
@@ -42,6 +42,15 @@
 
     </main>
 
+    <script>
+      if (location.protocol === 'file:') {
+        document.getElementById('status').textContent = '請使用公開網址開啟此工具：';
+        const link = document.createElement('a');
+        link.href = 'https://abnerwen0301.github.io/taiwan-investor-flow-tool/';
+        link.textContent = '開啟外資投信轉換工具';
+        document.getElementById('status').appendChild(link);
+      }
+    </script>
     <script type="module" src="./app.js"></script>
   </body>
 </html>
